@@ -1,204 +1,23 @@
-import { useState, useEffect } from "react";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell, ReferenceLine,
-} from "recharts";
-import { Gauge, Clock, Fuel, Thermometer, Cpu, TrendingUp } from "lucide-react";
-import KPICard from "../components/KPICard";
-import { PageContainer, SectionCard, LoadingSpinner } from "../components/UI";
-import { getKpis, getTelemetryLatest, getFuelTrend } from "../services/api";
+import { Activity, Droplet, Map, MapPin, Truck } from "lucide-react";
+import PageShell, { IconFrame, panel } from "../components/PageShell";
 
-function CustomTooltip({ active, payload, label }) {
-  if (!active || !payload || !payload.length) return null;
-  return (
-    <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 shadow-xl">
-      <p className="text-xs text-slate-400 mb-1">{label}</p>
-      {payload.map((entry, i) => (
-        <p key={i} className="text-sm font-semibold text-slate-100">
-          {entry.value} {entry.unit || "L"}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-function utilizationColor(value) {
-  if (value >= 75) return "#22c55e";
-  if (value >= 50) return "#f59e0b";
-  return "#f43f5e";
-}
+const fleet = [
+  { code: "KOM 303", name: "Komatsu 730E", hm: "20.25 HM", status: "ACTIVE" },
+  { code: "CAT 211", name: "Caterpillar 777", hm: "17.25 HM", status: "ACTIVE" },
+  { code: "D11-709", name: "Bull CAT D11", hm: "18.00 HM", status: "ACTIVE" },
+  { code: "PELLE 1", name: "Pelle CAT 6040", hm: "11.00 HM", status: "SERVICE" },
+];
 
 export default function Dashboard() {
-  const [kpis, setKpis] = useState(null);
-  const [telemetry, setTelemetry] = useState([]);
-  const [fuelTrend, setFuelTrend] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([getKpis(), getTelemetryLatest(), getFuelTrend()])
-      .then(([k, t, f]) => {
-        setKpis(k);
-        setTelemetry(t);
-        setFuelTrend(Array.isArray(f) ? f : [
-          { label: "W1", fuel: 1450 }, { label: "W2", fuel: 1620 }, { label: "W3", fuel: 1380 },
-          { label: "W4", fuel: 1750 }, { label: "W5", fuel: 1540 }, { label: "W6", fuel: 1680 },
-          { label: "W7", fuel: 1490 }, { label: "W8", fuel: 1840 },
-        ]);
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading || !kpis) {
-    return (
-      <PageContainer>
-        <LoadingSpinner size="lg" label="Loading dashboard data..." />
-      </PageContainer>
-    );
-  }
-
-  const utilizationData = telemetry.slice(0, 10).map((t) => ({
-    name: t.machine_code,
-    utilization: +t.utilization,
-  }));
-
-  return (
-    <PageContainer>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <KPICard
-          title="Machine Utilization"
-          value={kpis.utilization.value}
-          unit={kpis.utilization.unit}
-          trend={kpis.utilization.trend}
-          icon={Gauge}
-          accent="primary"
-          subtitle={`${kpis.utilization.active} of ${kpis.utilization.machines} machines active`}
-        />
-        <KPICard
-          title="Downtime"
-          value={kpis.downtime.value}
-          unit={kpis.downtime.unit}
-          trend={kpis.downtime.trend}
-          icon={Clock}
-          accent="warning"
-          subtitle={`${kpis.downtime.incidents} incidents today`}
-        />
-        <KPICard
-          title="Fuel Consumption"
-          value={kpis.fuel.value}
-          unit={kpis.fuel.unit}
-          trend={kpis.fuel.trend}
-          icon={Fuel}
-          accent="accent"
-          subtitle={`Avg ${kpis.fuel.avgPerMachine}L per machine`}
-        />
-        <KPICard
-          title="Overheating Alerts"
-          value={kpis.overheating.value}
-          unit={kpis.overheating.unit}
-          trend={kpis.overheating.trend}
-          icon={Thermometer}
-          accent="error"
-          subtitle={`${kpis.overheating.critical} critical warnings`}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <SectionCard
-          title="Fuel Consumption Trend"
-          subtitle="Weekly fuel usage across fleet (liters)"
-          className="xl:col-span-2"
-        >
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={fuelTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="fuelGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2563eb" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="label" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area
-                type="monotone"
-                dataKey="fuel"
-                stroke="#2563eb"
-                strokeWidth={2.5}
-                fill="url(#fuelGradient)"
-                activeDot={{ r: 5, fill: "#2563eb", stroke: "#1e3a8a", strokeWidth: 2 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </SectionCard>
-
-        <SectionCard
-          title="System Status"
-          subtitle="Real-time fleet overview"
-        >
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-success-500/15 flex items-center justify-center">
-                  <Cpu className="w-5 h-5 text-success-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-200">Active Machines</p>
-                  <p className="text-xs text-slate-500">Currently running</p>
-                </div>
-              </div>
-              <span className="text-2xl font-bold text-success-400">{kpis.utilization.active}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-warning-500/15 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-warning-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-200">In Maintenance</p>
-                  <p className="text-xs text-slate-500">Under repair</p>
-                </div>
-              </div>
-              <span className="text-2xl font-bold text-warning-400">
-                {telemetry.filter((t) => t.status === "MAINTENANCE").length}
-              </span>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-error-500/15 flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-error-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-200">Critical Alerts</p>
-                  <p className="text-xs text-slate-500">Need attention</p>
-                </div>
-              </div>
-              <span className="text-2xl font-bold text-error-400">{kpis.overheating.value}</span>
-            </div>
-          </div>
-        </SectionCard>
-      </div>
-
-      <SectionCard
-        title="Machine Utilization"
-        subtitle="Operational efficiency per machine — green >75%, amber 50-74%, rose <50%"
-      >
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={utilizationData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-            <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} angle={-20} textAnchor="end" height={60} />
-            <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} unit="%" />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "#1e293b40" }} />
-            <ReferenceLine y={75} stroke="#22c55e" strokeDasharray="5 5" strokeOpacity={0.4} />
-            <ReferenceLine y={50} stroke="#f59e0b" strokeDasharray="5 5" strokeOpacity={0.4} />
-            <Bar dataKey="utilization" radius={[6, 6, 0, 0]} unit="%">
-              {utilizationData.map((entry, i) => (
-                <Cell key={i} fill={utilizationColor(entry.utilization)} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </SectionCard>
-    </PageContainer>
-  );
+  return <PageShell><div className="h-full flex flex-col gap-5">
+    <div className="grid grid-cols-12 gap-5 min-h-[360px] lg:h-[52%]">
+      <section className={`${panel} col-span-12 lg:col-span-9 relative overflow-hidden p-7`}><h1 className="relative z-10 w-48 text-white text-2xl font-bold tracking-tight leading-tight">Supervision Flotte Zone 4</h1><img src="/assets/machines/komatsu-730e.png" alt="Komatsu 730E mining truck" className="absolute inset-0 m-auto h-[92%] w-4/5 object-contain drop-shadow-[0_30px_30px_rgba(0,0,0,0.8)]" /><div className="absolute bottom-6 left-6 rounded-2xl border border-white/10 bg-black/50 p-4 backdrop-blur-xl w-64"><p className="text-white text-sm font-bold">KOMATSU 730E · KM03</p><div className="mt-3 grid grid-cols-3 gap-2"><div><p className="text-[10px] text-zinc-500">HEURES</p><p className="font-mono text-xs text-white">20.25 HM</p></div><div><p className="text-[10px] text-zinc-500">VITESSE</p><p className="font-mono text-xs text-white">24 KM/H</p></div><div><p className="text-[10px] text-zinc-500">TEMP</p><p className="font-mono text-xs text-rose-400">92° C</p></div></div><div className="mt-3 flex h-7 items-end gap-0.5">{[40, 70, 45, 80, 60, 90, 55, 76, 62, 88, 48, 72, 92, 64, 80, 55, 76, 88, 70, 96].map((height, index) => <span key={index} className="flex-1 rounded-sm bg-[#d4ff00]" style={{ height: `${height}%` }} />)}</div></div><div className="absolute bottom-10 right-8 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/50 p-3 backdrop-blur-xl"><div><p className="text-[10px] text-zinc-500">SAP ID #2002125</p><p className="font-mono text-xl font-bold text-white">186.4 T</p></div><IconFrame className="text-zinc-300"><Truck className="w-5 h-5" /></IconFrame></div></section>
+      <section className={`${panel} col-span-12 lg:col-span-3 flex flex-col`}><div className="flex items-start justify-between mb-5"><div><h2 className="text-white font-bold tracking-tight text-lg">Flotte Active</h2><p className="text-xs text-zinc-500">68 véhicules en Zone 4</p></div><span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[#d4ff00]/10 border border-[#d4ff00]/20 text-[#d4ff00]">LIVE</span></div><div className="space-y-3 overflow-auto">{fleet.map((vehicle) => <div key={vehicle.code} className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 p-3 hover:bg-white/10 hover:border-white/20 transition-all"><div className="flex items-center gap-3"><IconFrame className="p-1.5 text-zinc-300"><Truck className="w-4 h-4" /></IconFrame><div><p className="font-mono text-sm font-bold text-white">{vehicle.code}</p><p className="text-[10px] text-zinc-500">{vehicle.name}</p></div></div><span className="font-mono text-xs font-bold text-[#d4ff00]">{vehicle.hm}</span></div>)}</div></section>
+    </div>
+    <div className="grid grid-cols-12 gap-5 min-h-[220px] flex-1">
+      <section className={`${panel} col-span-12 lg:col-span-4 overflow-hidden`}><h2 className="text-white font-bold tracking-tight">Feuille de Saisie</h2><div className="mt-4 space-y-4">{[["06:24 AM — 10:30 AM", "Tranchée Z4 Nord", "KOM 303", "186 T"], ["10:40 AM — 12:30 PM", "Front de Taille B", "CAT 211", "190 T"], ["02:30 PM — 04:40 PM", "Piste Principale", "D11-709", "0 T"]].map(([time, location, code, load]) => <div key={time} className="flex items-center gap-3"><span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#d4ff00] shadow-[0_0_8px_#d4ff00]" /><div className="min-w-0 flex-1"><p className="font-mono text-[10px] text-zinc-500">{time}</p><p className="truncate text-xs text-white">{location}</p></div><div className="text-right"><p className="font-mono text-xs font-bold text-white">{code}</p><p className="font-mono text-[10px] text-[#d4ff00]">{load}</p></div></div>)}</div></section>
+      <div className="col-span-12 lg:col-span-3 flex flex-col gap-5"><section className={`${panel} flex-1`}><div className="flex items-center justify-between"><p className="text-xs text-zinc-500">COÛT PRÉDICTIF / TONNE</p><IconFrame><Droplet className="w-4 h-4" /></IconFrame></div><p className="mt-4 font-mono text-2xl font-bold text-white">$140.21</p><div className="mt-2 flex h-8 items-end gap-1">{[30, 55, 40, 72, 48, 85, 62, 92].map((height, index) => <span key={index} className="flex-1 rounded-t bg-[#d4ff00]" style={{ height: `${height}%` }} />)}</div></section><section className={`${panel} flex-1`}><div className="flex items-center justify-between"><p className="text-xs text-zinc-500">CONSOMMATION GASOIL</p><IconFrame><Activity className="w-4 h-4" /></IconFrame></div><p className="mt-4 font-mono text-2xl font-bold text-white">1,840 <span className="text-sm font-normal text-zinc-500">Litres</span></p></section></div>
+      <section className={`${panel} col-span-12 lg:col-span-5`}><div className="flex items-center justify-between"><div><h2 className="text-white font-bold tracking-tight">Circuit Zone 4</h2><p className="text-xs text-zinc-500">Sidi Chennane KM03</p></div><IconFrame><Map className="w-5 h-5" /></IconFrame></div><div className="relative mt-4 h-[calc(100%-3.5rem)] min-h-28 overflow-hidden rounded-2xl border border-white/10 bg-black/40"><svg className="absolute inset-0 h-full w-full" viewBox="0 0 400 200"><path d="M 50 150 L 150 100 L 250 130 L 350 60 M 150 100 L 200 40 L 300 80" fill="none" stroke="#3f3f46" strokeWidth="2" strokeDasharray="4 4" /></svg><div className="absolute left-[25%] top-[48%]"><div className="absolute h-7 w-7 animate-ping rounded-full bg-[#d4ff00]/20" /><MapPin className="relative z-10 h-5 w-5 text-[#d4ff00]" fill="#d4ff00" /></div><span className="absolute left-[70%] top-[25%] h-2 w-2 rounded-full bg-[#d4ff00] shadow-[0_0_8px_#d4ff00]" /><span className="absolute left-[50%] top-[15%] h-2 w-2 rounded-full bg-[#d4ff00] shadow-[0_0_8px_#d4ff00]" /></div></section>
+    </div>
+  </div></PageShell>;
 }
